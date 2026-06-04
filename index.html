@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Haul Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --yellow: #F5C400; --yellow-dark: #D4A900; --black: #1A1A1A;
+    --white: #FFFFFF; --gray-100: #F4F4F2; --gray-200: #E8E8E4;
+    --gray-400: #AEADA6; --gray-600: #6B6A63; --orange: #E05A00;
+    --green: #2E7D32; --blue: #1565C0; --red: #C62828;
+    --shadow: 0 2px 8px rgba(0,0,0,0.12); --shadow-lg: 0 4px 20px rgba(0,0,0,0.18);
+  }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  body { font-family:'Barlow',sans-serif; background:var(--gray-100); color:var(--black); min-height:100vh; padding-bottom:20px; }
+
+  /* HEADER */
+  .header { background:var(--black); padding:8px 12px 7px; position:sticky; top:0; z-index:100; display:flex; align-items:center; justify-content:space-between; gap:8px; border-bottom:3px solid var(--yellow); }
+  .header-left { display:flex; align-items:center; gap:8px; }
+  .app-title { font-family:'Barlow Condensed',sans-serif; font-size:18px; font-weight:800; color:var(--yellow); letter-spacing:0.5px; text-transform:uppercase; }
+  .global-clock { font-family:'Share Tech Mono',monospace; font-size:22px; color:var(--white); letter-spacing:2px; background:rgba(255,255,255,0.06); padding:3px 8px; border-radius:4px; }
+  .header-controls { display:flex; gap:6px; align-items:center; flex-shrink:0; }
+  .btn-header { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; padding:6px 10px; border-radius:4px; border:none; cursor:pointer; transition:all 0.15s; }
+  .btn-reset { background:transparent; color:var(--gray-400); border:1px solid var(--gray-600); }
+  .btn-reset:active { background:rgba(255,255,255,0.08); }
+  .btn-export { background:var(--orange); color:var(--white); }
+  .btn-export:active { opacity:0.85; }
+
+  /* FLEET AVERAGES BAR */
+  .fleet-bar {
+    background:var(--white); border-bottom:1px solid var(--gray-200);
+    padding:8px 12px; display:flex; gap:6px; overflow-x:auto;
+    -webkit-overflow-scrolling:touch; flex-wrap:wrap;
+  }
+  .fleet-stat {
+    display:flex; flex-direction:column; align-items:center;
+    background:var(--gray-100); border-radius:6px; padding:5px 10px;
+    min-width:80px; flex:1;
+  }
+  .fleet-stat-val { font-family:'Share Tech Mono',monospace; font-size:14px; color:var(--black); font-weight:400; }
+  .fleet-stat-val.orange { color:var(--orange); }
+  .fleet-stat-val.blue { color:var(--blue); }
+  .fleet-stat-val.green { color:var(--green); }
+  .fleet-stat-label { font-size:8px; text-transform:uppercase; letter-spacing:0.5px; color:var(--gray-400); font-weight:700; margin-top:2px; text-align:center; }
+
+  /* RESTORE BANNER */
+  .restore-banner { background:#1565C0; color:white; padding:12px 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .restore-text { flex:1; font-size:13px; line-height:1.4; }
+  .restore-text strong { display:block; font-family:'Barlow Condensed',sans-serif; font-size:15px; text-transform:uppercase; letter-spacing:0.5px; }
+  .restore-btns { display:flex; gap:8px; flex-shrink:0; }
+  .btn-restore { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:13px; text-transform:uppercase; padding:7px 12px; border-radius:4px; border:none; cursor:pointer; }
+  .btn-restore-yes { background:var(--yellow); color:var(--black); }
+  .btn-restore-no { background:rgba(255,255,255,0.2); color:white; }
+
+  /* SETUP */
+  .setup-screen { padding:16px 14px; }
+  .setup-title { font-family:'Barlow Condensed',sans-serif; font-size:16px; font-weight:700; text-transform:uppercase; color:var(--gray-600); letter-spacing:1px; margin-bottom:12px; }
+  .vehicle-slots { display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
+  .slot-row { background:var(--white); border-radius:8px; padding:8px 10px; box-shadow:var(--shadow); }
+  .slot-main { display:flex; align-items:center; gap:8px; }
+  .slot-num { font-family:'Barlow Condensed',sans-serif; font-size:18px; font-weight:800; color:var(--yellow-dark); width:24px; text-align:center; flex-shrink:0; }
+  .slot-input { flex:1; font-family:'Barlow',sans-serif; font-size:15px; font-weight:500; border:none; outline:none; color:var(--black); background:transparent; }
+  .slot-toggle { width:38px; height:22px; border-radius:11px; border:none; cursor:pointer; position:relative; transition:background 0.2s; flex-shrink:0; }
+  .slot-toggle.on { background:var(--green); } .slot-toggle.off { background:var(--gray-400); }
+  .slot-toggle::after { content:''; position:absolute; width:16px; height:16px; background:white; border-radius:50%; top:3px; transition:left 0.2s; box-shadow:0 1px 4px rgba(0,0,0,0.3); }
+  .slot-toggle.on::after { left:19px; } .slot-toggle.off::after { left:3px; }
+  .slot-split { display:flex; align-items:center; gap:8px; margin-top:7px; padding-top:7px; border-top:1px solid var(--gray-100); padding-left:32px; }
+  .split-label { font-size:11px; color:var(--gray-600); font-weight:500; flex:1; }
+  .split-label span { display:block; font-size:10px; color:var(--gray-400); margin-top:1px; }
+  .split-toggle { width:38px; height:22px; border-radius:11px; border:none; cursor:pointer; position:relative; transition:background 0.2s; flex-shrink:0; }
+  .split-toggle.on { background:var(--blue); } .split-toggle.off { background:var(--gray-400); }
+  .split-toggle::after { content:''; position:absolute; width:16px; height:16px; background:white; border-radius:50%; top:3px; transition:left 0.2s; box-shadow:0 1px 4px rgba(0,0,0,0.3); }
+  .split-toggle.on::after { left:19px; } .split-toggle.off::after { left:3px; }
+  .add-slot-btn { display:flex; align-items:center; justify-content:center; gap:6px; background:transparent; border:2px dashed var(--gray-400); border-radius:8px; padding:10px; width:100%; font-family:'Barlow Condensed',sans-serif; font-size:15px; font-weight:600; color:var(--gray-600); text-transform:uppercase; letter-spacing:0.5px; cursor:pointer; transition:all 0.15s; }
+  .add-slot-btn:active { border-color:var(--yellow-dark); color:var(--yellow-dark); }
+  .start-session-btn { width:100%; background:var(--yellow); color:var(--black); font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:20px; letter-spacing:1px; text-transform:uppercase; padding:14px; border:none; border-radius:10px; cursor:pointer; box-shadow:0 4px 16px rgba(245,196,0,0.35); transition:all 0.15s; margin-top:8px; }
+  .start-session-btn:active { transform:scale(0.98); background:var(--yellow-dark); }
+
+  /* TRACKING */
+  .tracking-screen { padding:8px 10px; }
+  .session-label { font-size:11px; color:var(--gray-600); margin-bottom:8px; display:flex; align-items:center; gap:5px; }
+  .dot { width:7px; height:7px; border-radius:50%; background:var(--green); display:inline-block; animation:pulse 1.5s infinite; flex-shrink:0; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .vehicles-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .vehicle-card { background:var(--white); border-radius:8px; box-shadow:var(--shadow); overflow:hidden; display:flex; flex-direction:column; transition:box-shadow 0.15s; }
+  .vehicle-card.flash { box-shadow:0 0 0 3px var(--yellow), var(--shadow-lg); }
+
+  .lap-btn { flex:1; font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:15px; letter-spacing:0.5px; text-transform:uppercase; padding:10px 8px 8px; border:none; cursor:pointer; transition:background 0.15s,color 0.15s; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-height:80px; width:100%; text-align:center; line-height:1.2; }
+  .lap-btn.state-idle { background:var(--black); color:var(--yellow); }
+  .lap-btn.state-idle:active { background:var(--yellow); color:var(--black); }
+  .lap-btn.state-loading { background:var(--orange); color:var(--white); }
+  .lap-btn.state-loading:active { background:#bf4f00; }
+  .lap-btn.state-driving { background:var(--blue); color:var(--white); }
+  .lap-btn.state-driving:active { background:#0d47a1; }
+  .lap-btn-name { font-size:13px; font-weight:800; word-break:break-word; hyphens:auto; }
+  .lap-btn-state { font-size:9px; font-weight:700; opacity:0.85; letter-spacing:1px; }
+  .loads-badge { font-family:'Share Tech Mono',monospace; font-size:17px; font-weight:400; line-height:1; }
+  .lap-split-timer { font-family:'Share Tech Mono',monospace; font-size:11px; opacity:0.9; }
+
+  /* VEHICLE AVERAGES ROW */
+  .vehicle-avgs {
+    display:flex; gap:4px; padding:5px 8px;
+    background:var(--gray-100); border-top:1px solid var(--gray-200);
+  }
+  .vavg { flex:1; text-align:center; }
+  .vavg-val { font-family:'Share Tech Mono',monospace; font-size:10px; }
+  .vavg-val.orange { color:var(--orange); }
+  .vavg-val.blue { color:var(--blue); }
+  .vavg-val.green { color:var(--green); }
+  .vavg-label { font-size:8px; text-transform:uppercase; letter-spacing:0.3px; color:var(--gray-400); font-weight:700; }
+
+  /* DROPDOWN */
+  .card-footer { border-top:1px solid var(--gray-200); }
+  .dropdown-toggle { width:100%; background:var(--gray-100); border:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; padding:5px 8px; font-family:'Barlow Condensed',sans-serif; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--gray-600); transition:background 0.15s; }
+  .dropdown-toggle:active { background:var(--gray-200); }
+  .chevron { font-size:10px; transition:transform 0.2s; display:inline-block; }
+  .chevron.open { transform:rotate(180deg); }
+  .log-section { max-height:0; overflow:hidden; transition:max-height 0.25s ease; }
+  .log-section.open { max-height:260px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+
+  .log-header-row { display:grid; padding:3px 8px; gap:4px; background:var(--gray-200); position:sticky; top:0; }
+  .log-header-row.cols-3 { grid-template-columns:22px 1fr 1fr 18px; }
+  .log-header-row.cols-4 { grid-template-columns:22px 1fr 1fr 1fr 18px; }
+  .log-header-cell { font-size:8px; text-transform:uppercase; letter-spacing:0.5px; color:var(--gray-600); font-weight:700; }
+  .log-header-cell.right { text-align:right; }
+  .log-header-cell.center { text-align:center; }
+
+  .log-row { display:grid; padding:4px 8px; gap:4px; border-bottom:1px solid var(--gray-100); align-items:center; animation:fadeIn 0.2s ease; }
+  .log-row.cols-3 { grid-template-columns:22px 1fr 1fr 18px; }
+  .log-row.cols-4 { grid-template-columns:22px 1fr 1fr 1fr 18px; }
+  .log-row:last-child { border-bottom:none; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(-3px)} to{opacity:1;transform:translateY(0)} }
+  .log-num { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:11px; color:var(--orange); text-align:center; background:#FFF3E0; border-radius:3px; padding:1px 2px; }
+  .log-time { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--black); }
+  .log-lap { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--green); text-align:right; }
+  .log-load-time { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--orange); text-align:center; }
+  .log-drive-time { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--blue); text-align:right; }
+
+  .del-btn { background:none; border:none; cursor:pointer; font-size:13px; padding:0 2px; color:var(--gray-400); line-height:1; display:flex; align-items:center; justify-content:center; }
+  .del-btn:active { color:var(--red); transform:scale(1.2); }
+
+  .empty-log { padding:8px; text-align:center; font-size:10px; color:var(--gray-400); font-family:'Barlow Condensed',sans-serif; text-transform:uppercase; letter-spacing:0.5px; }
+
+  /* AUTOSAVE */
+  .autosave-dot { position:fixed; bottom:10px; right:12px; font-size:10px; color:var(--gray-400); font-family:'Barlow Condensed',sans-serif; letter-spacing:0.5px; text-transform:uppercase; display:flex; align-items:center; gap:4px; opacity:0; transition:opacity 0.5s; pointer-events:none; }
+  .autosave-dot.show { opacity:1; }
+  .autosave-dot-icon { width:6px; height:6px; border-radius:50%; background:var(--green); }
+
+  /* MODAL */
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:200; display:flex; align-items:flex-end; }
+  .modal { background:var(--white); border-radius:16px 16px 0 0; width:100%; padding:20px 16px 40px; max-height:75vh; overflow-y:auto; }
+  .modal-title { font-family:'Barlow Condensed',sans-serif; font-size:20px; font-weight:800; text-transform:uppercase; margin-bottom:6px; }
+  .modal-note { font-size:12px; color:var(--gray-600); margin-bottom:12px; line-height:1.4; }
+  .modal-note strong { color:var(--black); }
+  .export-preview { font-family:'Share Tech Mono',monospace; font-size:10px; background:var(--gray-100); padding:10px; border-radius:8px; overflow-x:auto; white-space:pre; color:var(--black); margin-bottom:14px; max-height:180px; overflow-y:auto; line-height:1.6; }
+  .modal-btns { display:flex; flex-direction:column; gap:8px; }
+  .btn-modal { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:17px; text-transform:uppercase; letter-spacing:0.5px; padding:13px; border-radius:8px; border:none; cursor:pointer; width:100%; transition:all 0.15s; }
+  .btn-copy { background:var(--black); color:var(--yellow); } .btn-copy:active { background:#333; }
+  .btn-download { background:var(--green); color:var(--white); } .btn-download:active { opacity:0.85; }
+  .btn-close { background:var(--gray-200); color:var(--gray-600); } .btn-close:active { background:var(--gray-400); }
+
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="app-title">⚡ Haul</div>
+    <div class="global-clock" id="globalClock">00:00:00</div>
+  </div>
+  <div class="header-controls">
+    <button class="btn-header btn-export hidden" id="btnExport" onclick="openExport()">Export</button>
+    <button class="btn-header btn-reset hidden" id="btnReset" onclick="resetSession()">Reset</button>
+  </div>
+</div>
+
+<!-- FLEET AVERAGES BAR -->
+<div class="fleet-bar hidden" id="fleetBar">
+  <div class="fleet-stat">
+    <div class="fleet-stat-val green" id="fleetLoads">0</div>
+    <div class="fleet-stat-label">Total Loads</div>
+  </div>
+  <div class="fleet-stat">
+    <div class="fleet-stat-val orange" id="fleetAvgLoad">—</div>
+    <div class="fleet-stat-label">Avg Loading</div>
+  </div>
+  <div class="fleet-stat">
+    <div class="fleet-stat-val blue" id="fleetAvgTrip">—</div>
+    <div class="fleet-stat-label">Avg Round Trip</div>
+  </div>
+  <div class="fleet-stat">
+    <div class="fleet-stat-val" id="fleetAvgLap">—</div>
+    <div class="fleet-stat-label">Avg Lap</div>
+  </div>
+</div>
+
+<!-- RESTORE BANNER -->
+<div id="restoreBanner" class="restore-banner hidden">
+  <div class="restore-text">
+    <strong>📦 Unsaved session found</strong>Restore your last session?
+  </div>
+  <div class="restore-btns">
+    <button class="btn-restore btn-restore-yes" onclick="restoreSession()">Restore</button>
+    <button class="btn-restore btn-restore-no" onclick="discardRestore()">Discard</button>
+  </div>
+</div>
+
+<!-- SETUP SCREEN -->
+<div id="setupScreen" class="setup-screen">
+  <div class="setup-title">Configure Vehicles</div>
+  <div class="vehicle-slots" id="vehicleSlots"></div>
+  <button class="add-slot-btn" onclick="addSlot()">＋ Add Vehicle</button>
+  <br>
+  <button class="start-session-btn" onclick="startSession()">▶ Start Session</button>
+</div>
+
+<!-- TRACKING SCREEN -->
+<div id="trackingScreen" class="tracking-screen hidden">
+  <div class="session-label">
+    <span class="dot"></span>
+    Tap once to start loading · again when driving · again to complete
+  </div>
+  <div class="vehicles-grid" id="vehiclesGrid"></div>
+</div>
+
+<!-- AUTOSAVE -->
+<div class="autosave-dot" id="autosaveDot">
+  <div class="autosave-dot-icon"></div> Saved
+</div>
+
+<!-- EXPORT MODAL -->
+<div class="modal-overlay hidden" id="exportModal">
+  <div class="modal">
+    <div class="modal-title">📋 Export Data</div>
+    <div class="modal-note"><strong>Copy to Clipboard</strong> then paste directly into Excel or Google Sheets — each value lands in its own cell.</div>
+    <div class="export-preview" id="exportPreview"></div>
+    <div class="modal-btns">
+      <button class="btn-modal btn-copy" id="btnCopy" onclick="copyToClipboard()">Copy to Clipboard → Paste into Excel</button>
+      <button class="btn-modal btn-download" onclick="downloadCSV()">Download .CSV File</button>
+      <button class="btn-modal btn-close" onclick="closeExport()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const STORAGE_KEY = 'haultracker_session';
+  let slots = [], vehicles = [], sessionStart = null, timerInterval = null, running = false;
+
+  // ── AUTOSAVE ──────────────────────────────────────────────
+  function saveSession() {
+    if (!running) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        sessionStart, savedAt: Date.now(),
+        vehicles: vehicles.map(v => ({
+          id:v.id, name:v.name, splitMode:v.splitMode, loads:v.loads,
+          phase:v.phase, phaseStart:v.phaseStart, loadingStart:v.loadingStart,
+          loadingTime:v.loadingTime||0, lastCycleStart:v.lastCycleStart
+        }))
+      }));
+      showAutosaveDot();
+    } catch(e) {}
+  }
+
+  function showAutosaveDot() {
+    const d = document.getElementById('autosaveDot');
+    d.classList.add('show');
+    clearTimeout(d._t);
+    d._t = setTimeout(() => d.classList.remove('show'), 2000);
+  }
+
+  function clearSavedSession() { try { localStorage.removeItem(STORAGE_KEY); } catch(e) {} }
+
+  // ── RESTORE ───────────────────────────────────────────────
+  function checkForSavedSession() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const state = JSON.parse(raw);
+      if (Date.now() - state.savedAt > 86400000) { clearSavedSession(); return; }
+      const mins = Math.floor((Date.now() - state.savedAt) / 60000);
+      const ago = mins < 1 ? 'just now' : mins === 1 ? '1 min ago' : `${mins} mins ago`;
+      const banner = document.getElementById('restoreBanner');
+      banner.querySelector('.restore-text').innerHTML =
+        `<strong>📦 Unsaved session found</strong>Saved ${ago} — restore it?`;
+      banner.classList.remove('hidden');
+    } catch(e) {}
+  }
+
+  function restoreSession() {
+    try {
+      const state = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      sessionStart = state.sessionStart;
+      vehicles = state.vehicles.map(v => ({
+        id:v.id, name:v.name, splitMode:v.splitMode, loads:v.loads||[],
+        phase:v.phase||'idle', phaseStart:v.phaseStart||0,
+        loadingStart:v.loadingStart||0, loadingTime:v.loadingTime||0,
+        lastCycleStart:v.lastCycleStart||0
+      }));
+      running = true;
+      timerInterval = setInterval(tick, 200);
+      document.getElementById('restoreBanner').classList.add('hidden');
+      document.getElementById('setupScreen').classList.add('hidden');
+      document.getElementById('trackingScreen').classList.remove('hidden');
+      document.getElementById('btnExport').classList.remove('hidden');
+      document.getElementById('btnReset').classList.remove('hidden');
+      document.getElementById('fleetBar').classList.remove('hidden');
+      renderVehicles();
+      vehicles.forEach(v => {
+        if (v.loads.length > 0) {
+          document.getElementById(`logrows-${v.id}`).innerHTML = '';
+          [...v.loads].reverse().forEach(l =>
+            appendLogRow(v, l.load, l.timestamp, l.loadingTime, l.drivingTime, l.lapTime)
+          );
+          document.getElementById(`loads-${v.id}`).textContent = v.loads.length;
+        }
+        const btn = document.getElementById(`lapbtn-${v.id}`);
+        const phaseEl = document.getElementById(`phase-${v.id}`);
+        if (v.phase === 'loading') { btn.className='lap-btn state-loading'; phaseEl.textContent='LOADING...'; }
+        else if (v.phase === 'driving') { btn.className='lap-btn state-driving'; phaseEl.textContent='DRIVING...'; }
+      });
+      updateFleetAverages();
+      vehicles.forEach(v => updateVehicleAverages(v));
+    } catch(e) { alert('Could not restore session.'); discardRestore(); }
+  }
+
+  function discardRestore() {
+    clearSavedSession();
+    document.getElementById('restoreBanner').classList.add('hidden');
+  }
+
+  // ── SETUP ─────────────────────────────────────────────────
+  function initSlots() {
+    slots = ['Truck 1','Truck 2','Truck 3','Truck 4'].map((name,i) => ({id:i,name,active:true,splitMode:false}));
+    renderSlots();
+  }
+
+  function renderSlots() {
+    document.getElementById('vehicleSlots').innerHTML = slots.map((s,i) => `
+      <div class="slot-row" id="slot-${i}">
+        <div class="slot-main">
+          <div class="slot-num">${i+1}</div>
+          <input class="slot-input" type="text" value="${escHtml(s.name)}" placeholder="Vehicle name" oninput="slots[${i}].name=this.value" maxlength="20">
+          <button class="slot-toggle ${s.active?'on':'off'}" onclick="toggleSlot(${i})"></button>
+        </div>
+        <div class="slot-split">
+          <div class="split-label">Split Timing<span>Track Loading + Round Trip separately</span></div>
+          <button class="split-toggle ${s.splitMode?'on':'off'}" onclick="toggleSplit(${i})"></button>
+        </div>
+      </div>`).join('');
+  }
+
+  function toggleSlot(i) {
+    slots[i].active = !slots[i].active;
+    const b = document.querySelector(`#slot-${i} .slot-toggle`);
+    b.classList.toggle('on',slots[i].active); b.classList.toggle('off',!slots[i].active);
+  }
+  function toggleSplit(i) {
+    slots[i].splitMode = !slots[i].splitMode;
+    const b = document.querySelector(`#slot-${i} .split-toggle`);
+    b.classList.toggle('on',slots[i].splitMode); b.classList.toggle('off',!slots[i].splitMode);
+  }
+  function addSlot() {
+    const i = slots.length;
+    slots.push({id:i,name:`Truck ${i+1}`,active:true,splitMode:false});
+    renderSlots();
+    setTimeout(() => document.getElementById(`slot-${i}`)?.scrollIntoView({behavior:'smooth',block:'nearest'}),50);
+  }
+
+  // ── SESSION ───────────────────────────────────────────────
+  function startSession() {
+    const active = slots.filter(s => s.active && s.name.trim());
+    if (!active.length) { alert('Enable at least one vehicle.'); return; }
+    vehicles = active.map(s => ({
+      id:s.id, name:s.name.trim(), splitMode:s.splitMode,
+      loads:[], phase:'idle', phaseStart:0,
+      loadingStart:0, loadingTime:0, lastCycleStart:0
+    }));
+    sessionStart = Date.now(); running = true;
+    timerInterval = setInterval(tick, 200);
+    document.getElementById('setupScreen').classList.add('hidden');
+    document.getElementById('trackingScreen').classList.remove('hidden');
+    document.getElementById('btnExport').classList.remove('hidden');
+    document.getElementById('btnReset').classList.remove('hidden');
+    document.getElementById('fleetBar').classList.remove('hidden');
+    renderVehicles();
+    saveSession();
+  }
+
+  // ── TICK ──────────────────────────────────────────────────
+  function tick() {
+    const elapsed = Date.now() - sessionStart;
+    document.getElementById('globalClock').textContent = formatTime(elapsed);
+    vehicles.forEach(v => {
+      if (v.phase !== 'idle') {
+        const el = document.getElementById(`phasetimer-${v.id}`);
+        if (el) el.textContent = formatShort(elapsed - v.phaseStart);
+      }
+    });
+  }
+
+  // ── RENDER VEHICLES ───────────────────────────────────────
+  function renderVehicles() {
+    document.getElementById('vehiclesGrid').innerHTML = vehicles.map(v => {
+      const cc = v.splitMode ? 'cols-4' : 'cols-3';
+      const hdr = v.splitMode
+        ? `<div class="log-header-cell">#</div><div class="log-header-cell">Time</div><div class="log-header-cell center">Loading</div><div class="log-header-cell right">Round Trip</div><div class="log-header-cell"></div>`
+        : `<div class="log-header-cell">#</div><div class="log-header-cell">Time</div><div class="log-header-cell right">Lap</div><div class="log-header-cell"></div>`;
+
+      // averages section — show relevant fields
+      const avgSection = v.splitMode ? `
+        <div class="vehicle-avgs" id="vavgs-${v.id}">
+          <div class="vavg"><div class="vavg-val orange" id="vavg-load-${v.id}">—</div><div class="vavg-label">Avg Load</div></div>
+          <div class="vavg"><div class="vavg-val blue" id="vavg-trip-${v.id}">—</div><div class="vavg-label">Avg Trip</div></div>
+          <div class="vavg"><div class="vavg-val green" id="vavg-total-${v.id}">—</div><div class="vavg-label">Avg Total</div></div>
+        </div>` : `
+        <div class="vehicle-avgs" id="vavgs-${v.id}">
+          <div class="vavg"><div class="vavg-val green" id="vavg-lap-${v.id}">—</div><div class="vavg-label">Avg Lap</div></div>
+        </div>`;
+
+      return `
+        <div class="vehicle-card" id="vcard-${v.id}">
+          <button class="lap-btn state-idle" id="lapbtn-${v.id}" ontouchstart="" onclick="recordLoad(${v.id})">
+            <div class="lap-btn-name">${escHtml(v.name)}</div>
+            <div class="loads-badge" id="loads-${v.id}">0</div>
+            <div class="lap-btn-state" id="phase-${v.id}">TAP TO START</div>
+            <div class="lap-split-timer" id="phasetimer-${v.id}"></div>
+          </button>
+          ${avgSection}
+          <div class="card-footer">
+            <button class="dropdown-toggle" onclick="toggleLog(${v.id})">
+              <span>Times</span><span class="chevron" id="chev-${v.id}">▼</span>
+            </button>
+            <div class="log-section" id="log-${v.id}">
+              <div class="log-header-row ${cc}">${hdr}</div>
+              <div id="logrows-${v.id}"><div class="empty-log">No loads yet</div></div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function toggleLog(id) {
+    document.getElementById(`log-${id}`).classList.toggle('open');
+    document.getElementById(`chev-${id}`).classList.toggle('open');
+  }
+
+  // ── RECORD LOAD ───────────────────────────────────────────
+  function recordLoad(id) {
+    if (!running) return;
+    const v = vehicles.find(x => x.id === id);
+    if (!v) return;
+    const now = Date.now() - sessionStart;
+    const btn = document.getElementById(`lapbtn-${id}`);
+    const phaseEl = document.getElementById(`phase-${id}`);
+    const timerEl = document.getElementById(`phasetimer-${id}`);
+
+    if (!v.splitMode) {
+      const lapTime = v.lastCycleStart === 0 ? now : now - v.lastCycleStart;
+      v.lastCycleStart = now;
+      const loadNum = v.loads.length + 1;
+      v.loads.push({load:loadNum, timestamp:now, lapTime});
+      document.getElementById(`loads-${id}`).textContent = loadNum;
+      appendLogRow(v, loadNum, now, null, null, lapTime);
+      flashCard(id);
+      if (navigator.vibrate) navigator.vibrate(30);
+    } else {
+      if (v.phase === 'idle') {
+        v.phase='loading'; v.phaseStart=now; v.loadingStart=now;
+        if (v.lastCycleStart===0) v.lastCycleStart=now;
+        btn.className='lap-btn state-loading'; phaseEl.textContent='LOADING...'; timerEl.textContent='00:00';
+        if (navigator.vibrate) navigator.vibrate(20);
+      } else if (v.phase === 'loading') {
+        v.loadingTime=now-v.loadingStart; v.phase='driving'; v.phaseStart=now;
+        btn.className='lap-btn state-driving'; phaseEl.textContent='DRIVING...'; timerEl.textContent='00:00';
+        if (navigator.vibrate) navigator.vibrate([20,30,20]);
+      } else if (v.phase === 'driving') {
+        const drivingTime = now - v.phaseStart;
+        const loadNum = v.loads.length + 1;
+        v.loads.push({load:loadNum, timestamp:now, loadingTime:v.loadingTime, drivingTime});
+        v.lastCycleStart=now; v.phase='idle'; v.phaseStart=0; v.loadingTime=0;
+        document.getElementById(`loads-${id}`).textContent = loadNum;
+        btn.className='lap-btn state-idle'; phaseEl.textContent='TAP TO START'; timerEl.textContent='';
+        appendLogRow(v, loadNum, now, v.loads[loadNum-1].loadingTime, drivingTime, null);
+        flashCard(id);
+        if (navigator.vibrate) navigator.vibrate(40);
+      }
+    }
+    updateVehicleAverages(v);
+    updateFleetAverages();
+    saveSession();
+  }
+
+  // ── DELETE LAP ────────────────────────────────────────────
+  function deleteLap(vehicleId, loadNum) {
+    if (!confirm(`Remove Load #${loadNum}?`)) return;
+    const v = vehicles.find(x => x.id === vehicleId);
+    if (!v) return;
+    v.loads = v.loads.filter(l => l.load !== loadNum);
+    // Renumber remaining loads
+    v.loads.forEach((l,i) => l.load = i+1);
+    // Re-render log
+    const logRows = document.getElementById(`logrows-${vehicleId}`);
+    logRows.innerHTML = '';
+    if (v.loads.length === 0) {
+      logRows.innerHTML = '<div class="empty-log">No loads yet</div>';
+    } else {
+      [...v.loads].reverse().forEach(l =>
+        appendLogRow(v, l.load, l.timestamp, l.loadingTime, l.drivingTime, l.lapTime)
+      );
+    }
+    document.getElementById(`loads-${vehicleId}`).textContent = v.loads.length;
+    updateVehicleAverages(v);
+    updateFleetAverages();
+    saveSession();
+  }
+
+  function appendLogRow(v, loadNum, timestamp, loadingTime, drivingTime, lapTime) {
+    const logRows = document.getElementById(`logrows-${v.id}`);
+    // Remove empty state
+    const empty = logRows.querySelector('.empty-log');
+    if (empty) empty.remove();
+
+    const row = document.createElement('div');
+    const delBtn = `<button class="del-btn" onclick="deleteLap(${v.id},${loadNum})" title="Remove">✕</button>`;
+
+    if (v.splitMode) {
+      row.className = 'log-row cols-4';
+      row.dataset.load = loadNum;
+      row.innerHTML = `<div class="log-num">${loadNum}</div><div class="log-time">${formatTime(timestamp)}</div><div class="log-load-time">${formatShort(loadingTime)}</div><div class="log-drive-time">${formatShort(drivingTime)}</div>${delBtn}`;
+    } else {
+      row.className = 'log-row cols-3';
+      row.dataset.load = loadNum;
+      row.innerHTML = `<div class="log-num">${loadNum}</div><div class="log-time">${formatTime(timestamp)}</div><div class="log-lap">+${formatShort(lapTime)}</div>${delBtn}`;
+    }
+    logRows.prepend(row);
+  }
+
+  function flashCard(id) {
+    const c = document.getElementById(`vcard-${id}`);
+    c.classList.add('flash');
+    setTimeout(() => c.classList.remove('flash'), 350);
+  }
+
+  // ── AVERAGES ──────────────────────────────────────────────
+  function avg(arr) { return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null; }
+
+  function updateVehicleAverages(v) {
+    if (v.splitMode) {
+      const loads = v.loads.filter(l => l.loadingTime != null);
+      const trips = v.loads.filter(l => l.drivingTime != null);
+      const avgLoad = avg(loads.map(l => l.loadingTime));
+      const avgTrip = avg(trips.map(l => l.drivingTime));
+      const avgTotal = (avgLoad != null && avgTrip != null) ? avgLoad + avgTrip : null;
+      const el = (id) => document.getElementById(id);
+      if (el(`vavg-load-${v.id}`)) el(`vavg-load-${v.id}`).textContent = avgLoad != null ? formatShort(avgLoad) : '—';
+      if (el(`vavg-trip-${v.id}`)) el(`vavg-trip-${v.id}`).textContent = avgTrip != null ? formatShort(avgTrip) : '—';
+      if (el(`vavg-total-${v.id}`)) el(`vavg-total-${v.id}`).textContent = avgTotal != null ? formatShort(avgTotal) : '—';
+    } else {
+      const avgLap = avg(v.loads.map(l => l.lapTime));
+      const el = document.getElementById(`vavg-lap-${v.id}`);
+      if (el) el.textContent = avgLap != null ? formatShort(avgLap) : '—';
+    }
+  }
+
+  function updateFleetAverages() {
+    let totalLoads = 0;
+    let allLoadTimes = [], allTripTimes = [], allLapTimes = [];
+
+    vehicles.forEach(v => {
+      totalLoads += v.loads.length;
+      if (v.splitMode) {
+        v.loads.forEach(l => {
+          if (l.loadingTime != null) allLoadTimes.push(l.loadingTime);
+          if (l.drivingTime != null) allTripTimes.push(l.drivingTime);
+        });
+      } else {
+        v.loads.forEach(l => { if (l.lapTime != null) allLapTimes.push(l.lapTime); });
+      }
+    });
+
+    document.getElementById('fleetLoads').textContent = totalLoads;
+    document.getElementById('fleetAvgLoad').textContent = allLoadTimes.length ? formatShort(avg(allLoadTimes)) : '—';
+    document.getElementById('fleetAvgTrip').textContent = allTripTimes.length ? formatShort(avg(allTripTimes)) : '—';
+    document.getElementById('fleetAvgLap').textContent = allLapTimes.length ? formatShort(avg(allLapTimes)) : '—';
+  }
+
+  // ── TIME FORMATTING ───────────────────────────────────────
+  function formatTime(ms) {
+    const s=Math.floor(ms/1000);
+    return `${pad(Math.floor(s/3600))}:${pad(Math.floor((s%3600)/60))}:${pad(s%60)}`;
+  }
+  function formatShort(ms) {
+    const s=Math.floor(ms/1000), h=Math.floor(s/3600);
+    if (h>0) return `${pad(h)}:${pad(Math.floor((s%3600)/60))}:${pad(s%60)}`;
+    return `${pad(Math.floor(s/60))}:${pad(s%60)}`;
+  }
+  function pad(n) { return String(n).padStart(2,'0'); }
+
+  // ── EXPORT ────────────────────────────────────────────────
+  function buildTSV() {
+    const lines = [];
+    lines.push(`Session Start\t${new Date(sessionStart).toLocaleString()}`);
+    lines.push('');
+    vehicles.forEach(v => {
+      lines.push(`Vehicle: ${v.name}`);
+      if (v.splitMode) {
+        lines.push('Load #\tTimestamp\tLoading Time\tRound Trip Time');
+        if (!v.loads.length) lines.push('—\t—\t—\t—');
+        else v.loads.forEach(l => lines.push(`${l.load}\t${formatTime(l.timestamp)}\t${formatTime(l.loadingTime)}\t${formatTime(l.drivingTime)}`));
+        const avgL = avg(v.loads.map(l=>l.loadingTime));
+        const avgT = avg(v.loads.map(l=>l.drivingTime));
+        lines.push(`Averages\t\t${avgL!=null?formatTime(avgL):'—'}\t${avgT!=null?formatTime(avgT):'—'}`);
+      } else {
+        lines.push('Load #\tTimestamp\tLap Time');
+        if (!v.loads.length) lines.push('—\t—\t—');
+        else v.loads.forEach(l => lines.push(`${l.load}\t${formatTime(l.timestamp)}\t${formatTime(l.lapTime)}`));
+        const avgL = avg(v.loads.map(l=>l.lapTime));
+        lines.push(`Average\t\t${avgL!=null?formatTime(avgL):'—'}`);
+      }
+      lines.push('');
+    });
+    return lines.join('\n');
+  }
+
+  function buildCSV() { return buildTSV().replace(/\t/g,','); }
+
+  function openExport() {
+    document.getElementById('exportPreview').textContent = buildTSV().replace(/\t/g,'   ');
+    document.getElementById('exportModal').classList.remove('hidden');
+  }
+  function closeExport() { document.getElementById('exportModal').classList.add('hidden'); }
+
+  function copyToClipboard() {
+    const tsv = buildTSV(), btn = document.getElementById('btnCopy');
+    const ok = () => { btn.textContent='✓ Copied! Now paste into Excel'; setTimeout(()=>btn.textContent='Copy to Clipboard → Paste into Excel',2500); };
+    const fb = () => { const ta=document.createElement('textarea'); ta.value=tsv; ta.style.cssText='position:fixed;opacity:0'; document.body.appendChild(ta); ta.focus(); ta.select(); try{document.execCommand('copy');}catch(e){} document.body.removeChild(ta); ok(); };
+    navigator.clipboard?.writeText ? navigator.clipboard.writeText(tsv).then(ok).catch(fb) : fb();
+  }
+
+  function downloadCSV() {
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([buildCSV()],{type:'text/csv;charset=utf-8;'}));
+    a.download=`haul-tracker-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+  }
+
+  // ── RESET ─────────────────────────────────────────────────
+  function resetSession() {
+    if (vehicles.some(v=>v.loads.length>0) && !confirm('Reset? All data will be cleared.')) return;
+    clearInterval(timerInterval);
+    running=false; vehicles=[]; sessionStart=null;
+    clearSavedSession();
+    document.getElementById('globalClock').textContent='00:00:00';
+    document.getElementById('trackingScreen').classList.add('hidden');
+    document.getElementById('setupScreen').classList.remove('hidden');
+    document.getElementById('btnExport').classList.add('hidden');
+    document.getElementById('btnReset').classList.add('hidden');
+    document.getElementById('fleetBar').classList.add('hidden');
+    closeExport();
+  }
+
+  function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  initSlots();
+  checkForSavedSession();
+</script>
+</body>
+</html>
